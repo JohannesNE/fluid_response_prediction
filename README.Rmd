@@ -100,3 +100,68 @@ plot_data %>%
   )
 
 ```
+
+## An alternative approach
+
+We can also fit the model using change from Y0 to Y1 `I(Y1 - Y0)` and the mean `I((Y1 + Y0) / 2)` of the two values.
+
+```{r fit_model2}
+model2 <- brm(Y4 ~ 0 + I(Y1 - Y0) + I((Y1 + Y0) / 2),
+          data = df,
+          file = here("fluid_response","model2.Rds"),
+          file_refit= "on_change"
+          )
+model2
+```
+
+The estimate for `I((Y1 + Y0) / 2)` is 1, indicating that the expected difference between the Y4 and the mean of Y1 and Y0 only depend on the difference between Y0 and Y1. I.e. with this simulated data, we only need to consider the change from Y0 to Y1 to predict the change from mean(Y0, Y1) to Y4 (which is similar to the current use of the MFC approach). 
+
+I believe the models are equivalent though, so it should be possible to draw the same insight from the more attractive model 1.
+
+*The following is just the same predictions as above, but for model 2. They are equivalent.*
+
+Generate posterior predictions based on Y0 and Y1
+
+```{r prediction_model2}
+prediction2 <- tibble(Y0=Y0_new,Y1=Y1_new) %>%
+  add_predicted_draws(model2)
+
+head(prediction2)
+```
+
+Calculate posterior probability of Y4 superior to target
+
+```{r post_pred_prob_model2}
+post_pred_prob2 <- prediction2 %>%
+  summarise(prob=mean(.prediction>Y4_target)) %>%
+  pull(prob)
+```
+
+Data for points and lines
+
+```{r plot_data_model2}
+plot_data2 = tibble(time=ordered(c("Y0","Y1","Y4 (Predicted)")),y=c(Y0_new,Y1_new,mean(prediction2$.prediction)),group="group")
+```
+
+```{r plot_model2}
+plot_data2 %>%
+  ggplot(aes(x = time, y = y,group="group")) +
+  stat_halfeye(aes(y = .prediction, x = "Y4 (Predicted)", fill = after_stat(ifelse(y > Y4_target, "over", "under"))), data = prediction2) +
+  geom_point(size=3)+
+  geom_path()+
+  geom_hline(yintercept = Y4_target,linetype="dotted")+
+  scale_fill_manual(values = c("over" = "#87ceeb", "under" = "#FFC0CB")) +
+  scale_y_continuous(name = "Y (SV)")+
+  scale_x_discrete(name="")+
+  theme_tidybayes() +
+  labs(title = paste0(
+    "Posterior prediction for Y4 contitional on baseline Y0 and post-minibolus Y1 <br>",
+    "Posterior probability of Y4 <span style='color:#87ceeb;'>superior</span> to target (dotted line): ", scales::percent(post_pred_prob2, accuracy = .1)
+  ),caption = "@load_dependent") +
+  theme(
+    legend.position = "none", axis.line.y = NULL,
+    plot.title = element_markdown(lineheight = 1.1),
+    legend.text = element_markdown(size = 11)
+  )
+
+```
