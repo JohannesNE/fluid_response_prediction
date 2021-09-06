@@ -77,7 +77,7 @@ prediction <- tibble(Y0=Y0_new,Y1=Y1_new) %>%
 head(prediction)
 ```
 
-    ## # A tibble: 6 x 7
+    ## # A tibble: 6 × 7
     ## # Groups:   Y0, Y1, .row [1]
     ##      Y0    Y1  .row .chain .iteration .draw .prediction
     ##   <dbl> <dbl> <int>  <int>      <int> <int>       <dbl>
@@ -156,3 +156,58 @@ for spaghettiplot!
 ```
 
 ![](README_files/figure-gfm/conditional_posterior-1.png)<!-- -->
+
+## Y4 conditional on difference between Y1 and Y0
+
+``` r
+ post_grid <- tibble(Y0=seq(min(Y0),max(Y0),length.out=50),
+                     # Y1mY0 is the difference between Y1 and Y0 (the effect of MFC)
+                     Y1mY0=seq(-0.5,1.5,length.out=50)) %>% 
+  modelr::data_grid(Y0,Y1mY0) %>% 
+  mutate(Y1 = Y0 + Y1mY0) %>% 
+  add_predicted_draws(model1)
+
+ post_prob <- post_grid %>% summarise(posterior_prob=mean((.prediction/Y1) > 1.15))
+```
+
+    ## `summarise()` has grouped output by 'Y0', 'Y1mY0', 'Y1'. You can override using the `.groups` argument.
+
+``` r
+ post_prob %>% 
+   ggplot(aes(x=Y0,y=Y1mY0, fill=posterior_prob)) +
+   geom_tile()+
+   geom_contour(aes(z = posterior_prob)) +
+   metR::geom_label_contour(aes(z = posterior_prob)) +
+   scale_fill_viridis_c(name="")+
+   theme_tidybayes()+
+   labs(title = "Posterior probability of Y4 15% higher than Y1, \nconditional on Y0 and Y1 - Y0",
+        y = "Y1 - Y0") 
+```
+
+![](README_files/figure-gfm/conditional_posterior2-1.png)<!-- -->
+
+The data is generated with the change (Y4 - Y0) being additive and
+independent of Y0. Can we see this from the model?
+
+``` r
+ post_prob_abs <- post_grid %>% summarise(posterior_prob=mean((.prediction - Y1) > 0.5))
+```
+
+    ## `summarise()` has grouped output by 'Y0', 'Y1mY0', 'Y1'. You can override using the `.groups` argument.
+
+``` r
+ post_prob_abs %>% 
+   ggplot(aes(x=Y0,y=Y1mY0, fill=posterior_prob)) +
+   geom_tile()+
+   geom_contour(aes(z = posterior_prob)) +
+   metR::geom_label_contour(aes(z = posterior_prob)) +
+   scale_fill_viridis_c(name="")+
+   theme_tidybayes()+
+   labs(title = "Posterior probability of Y4 being 0.5 higher than Y1, \nconditional on Y0 and Y1 - Y0",
+        y = "Y1 - Y0") 
+```
+
+![](README_files/figure-gfm/conditional_posterior_absolute_change-1.png)<!-- -->
+
+So, regardless of Y0, if `Y1 - Y0` is 0.4, there is 50% change that Y1
+will be at least 0.5 higher than Y1.

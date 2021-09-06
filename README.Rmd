@@ -125,3 +125,47 @@ Thanks to [\@arthur_alb1](https://twitter.com/arthur_alb1) for the idea for spag
 
 
 ```
+
+## Y4 conditional on difference between Y1 and Y0
+
+```{r conditional_posterior2, cache=TRUE,cache.extra = tools::md5sum('model1.Rds')}
+ post_grid <- tibble(Y0=seq(min(Y0),max(Y0),length.out=50),
+                     # Y1mY0 is the difference between Y1 and Y0 (the effect of MFC)
+                     Y1mY0=seq(-0.5,1.5,length.out=50)) %>% 
+  modelr::data_grid(Y0,Y1mY0) %>% 
+  mutate(Y1 = Y0 + Y1mY0) %>% 
+  add_predicted_draws(model1)
+
+ post_prob <- post_grid %>% summarise(posterior_prob=mean((.prediction/Y1) > 1.15))
+ post_prob %>% 
+   ggplot(aes(x=Y0,y=Y1mY0, fill=posterior_prob)) +
+   geom_tile()+
+   geom_contour(aes(z = posterior_prob)) +
+   metR::geom_label_contour(aes(z = posterior_prob)) +
+   scale_fill_viridis_c(name="")+
+   theme_tidybayes()+
+   labs(title = "Posterior probability of Y4 15% higher than Y1, \nconditional on Y0 and Y1 - Y0",
+        y = "Y1 - Y0") 
+
+
+```
+
+The data is generated with the change (Y4 - Y0) being additive and independent of Y0. Can we see this from the model?
+
+```{r conditional_posterior_absolute_change, cache=TRUE,cache.extra = tools::md5sum('model1.Rds')}
+ post_prob_abs <- post_grid %>% summarise(posterior_prob=mean((.prediction - Y1) > 0.5))
+ post_prob_abs %>% 
+   ggplot(aes(x=Y0,y=Y1mY0, fill=posterior_prob)) +
+   geom_tile()+
+   geom_contour(aes(z = posterior_prob)) +
+   metR::geom_label_contour(aes(z = posterior_prob)) +
+   scale_fill_viridis_c(name="")+
+   theme_tidybayes()+
+   labs(title = "Posterior probability of Y4 being 0.5 higher than Y1, \nconditional on Y0 and Y1 - Y0",
+        y = "Y1 - Y0") 
+
+
+```
+
+
+So, regardless of Y0, if `Y1 - Y0` is 0.4, there is 50% change that Y1 will be at least 0.5 higher than Y1.
